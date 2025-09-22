@@ -6,7 +6,7 @@ export default function StockChart({ symbol }) {
   const [data, setData] = useState([]);
 
   useEffect(() => {
-    const socket = io("http://localhost:4000");
+    const socket = io(import.meta.env.VITE_SOCKET_URL);
     socket.emit("subscribe", symbol);
 
     socket.on("priceUpdate", ({ price }) => {
