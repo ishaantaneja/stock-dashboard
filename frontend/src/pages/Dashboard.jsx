@@ -14,7 +14,7 @@ export default function Dashboard() {
 
   // Initialize socket once
   useEffect(() => {
-    const newSocket = io("http://localhost:4000");
+    const newSocket = io(import.meta.env.VITE_SOCKET_URL);
     setSocket(newSocket);
     return () => newSocket.disconnect();
   }, []);

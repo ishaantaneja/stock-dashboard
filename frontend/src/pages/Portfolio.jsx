@@ -24,7 +24,7 @@ export default function Portfolio() {
   // Live price WebSocket
   useEffect(() => {
     if (!portfolio) return;
-    const socket = io("http://localhost:4000");
+    const socket = io(import.meta.env.VITE_API_URL);
     portfolio.positions.forEach(p => socket.emit("subscribe", p.symbol));
 
     socket.on("priceUpdate", ({ symbol, price }) => {
