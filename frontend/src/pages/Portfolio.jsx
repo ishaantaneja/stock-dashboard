@@ -54,6 +54,7 @@ export default function Portfolio() {
   };
 
   const analytics = calculateAnalytics();
+  const profitLossClass = analytics.profitLoss >= 0 ? "positive" : "negative";
 
   // Prepare PieChart data
   const pieData =
@@ -62,63 +63,61 @@ export default function Portfolio() {
       value: (livePrices[p.symbol] || p.avgPrice) * p.qty,
     })) || [];
 
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#AF19FF", "#FF4567"];
+  const COLORS = ["#00e0b7", "#00b2e0", "#e0b700", "#e00042", "#8e00e0", "#4567ff"];
 
   if (!portfolio) return <p>Loading portfolio...</p>;
 
   return (
-    <div>
-      <h2>Portfolio</h2>
-      <p>Cash: ${portfolio.cash.toFixed(2)}</p>
-
-      <table border="1">
-        <thead>
-          <tr>
-            <th>Symbol</th>
-            <th>Qty</th>
-            <th>Avg Price</th>
-            <th>Live Price</th>
-          </tr>
-        </thead>
-        <tbody>
-          {portfolio.positions.map((p) => (
-            <tr key={p.symbol}>
-              <td>{p.symbol}</td>
-              <td>{p.qty}</td>
-              <td>${p.avgPrice.toFixed(2)}</td>
-              <td>${(livePrices[p.symbol] || p.avgPrice).toFixed(2)}</td>
+    <div className="portfolio-container">
+      <div className="portfolio-table-container">
+        <h2>Your Holdings</h2>
+        <p>Cash: ${portfolio.cash.toFixed(2)}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Qty</th>
+              <th>Avg Price</th>
+              <th>Live Price</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {portfolio.positions.map((p) => (
+              <tr key={p.symbol}>
+                <td>{p.symbol}</td>
+                <td>{p.qty}</td>
+                <td>${p.avgPrice.toFixed(2)}</td>
+                <td>${(livePrices[p.symbol] || p.avgPrice).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-      {/* Portfolio Analytics */}
-      <div style={{ marginTop: "20px" }}>
-        <h3>Portfolio Analytics</h3>
-        <p>Total Invested: ${analytics.invested.toFixed(2)}</p>
-        <p>Current Value + Cash: ${analytics.current.toFixed(2)}</p>
-        <p>Profit / Loss: ${analytics.profitLoss.toFixed(2)}</p>
+        <div className="analytics">
+          <h3>Portfolio Analytics</h3>
+          <p>Total Invested: ${analytics.invested.toFixed(2)}</p>
+          <p>Current Value + Cash: ${analytics.current.toFixed(2)}</p>
+          <p className={profitLossClass}>Profit / Loss: ${analytics.profitLoss.toFixed(2)}</p>
+        </div>
       </div>
 
-      {/* Pie Chart */}
       {pieData.length > 0 && (
-        <div style={{ marginTop: "20px" }}>
+        <div className="pie-chart-container">
           <h3>Asset Allocation</h3>
-          <PieChart width={300} height={300}>
+          <PieChart width={400} height={400}>
             <Pie
               data={pieData}
               dataKey="value"
               nameKey="name"
               cx="50%"
               cy="50%"
-              outerRadius={100}
-              label
+              outerRadius={150}
             >
               {pieData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip />
+            <Tooltip formatter={(value) => `$${value.toFixed(2)}`} />
           </PieChart>
         </div>
       )}

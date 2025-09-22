@@ -68,18 +68,20 @@ export default function Dashboard() {
           current += (livePrices[p.symbol] || p.avgPrice) * p.qty;
         });
         const totalCurrent = current + (portfolio.cash || 0);
-        return { invested, current: totalCurrent, profitLoss: totalCurrent - invested };
+        const profitLoss = totalCurrent - (invested + (portfolio.cash || 0));
+        return { invested, current: totalCurrent, profitLoss };
       })()
     : { invested: 0, current: 0, profitLoss: 0 };
+  
+  const profitLossClass = analytics.profitLoss >= 0 ? "positive" : "negative";
 
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h2>Market Dashboard</h2>
         <div>
-          {/* Searchable stock dropdown */}
           <input
-            placeholder="Search stock by name or symbol"
+            placeholder="Search stock..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -90,7 +92,7 @@ export default function Dashboard() {
               </option>
             ))}
           </select>
-          <button onClick={refreshPortfolio}>Refresh Portfolio</button>
+          <button onClick={refreshPortfolio}>Refresh</button>
         </div>
       </div>
 
@@ -130,7 +132,7 @@ export default function Dashboard() {
             <div className="analytics">
               <p>Total Invested: ${analytics.invested.toFixed(2)}</p>
               <p>Current Value + Cash: ${analytics.current.toFixed(2)}</p>
-              <p>Profit / Loss: ${analytics.profitLoss.toFixed(2)}</p>
+              <p className={profitLossClass}>Profit / Loss: ${analytics.profitLoss.toFixed(2)}</p>
             </div>
           </div>
         )}
