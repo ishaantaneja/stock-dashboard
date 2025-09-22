@@ -1,0 +1,57 @@
+body {
+  margin: 0;
+  font-family: 'Arial', sans-serif;
+  background-color: #121212;
+  color: #eee;
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  padding: 15px 30px;
+  background-color: #1f1f1f;
+  align-items: center;
+}
+.navbar .links button, .navbar .links a {
+  margin-left: 15px;
+}
+
+.dashboard-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dashboard-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.chart-panel, .trade-panel, .portfolio-summary {
+  background: #1a1a1a;
+  padding: 20px;
+  border-radius: 12px;
+  flex: 1 1 300px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+table th, table td {
+  border: 1px solid #444;
+  padding: 8px;
+}
+
+.analytics {
+  margin-top: 15px;
+  font-weight: bold;
+}
