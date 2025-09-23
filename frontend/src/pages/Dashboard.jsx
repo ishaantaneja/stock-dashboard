@@ -1,201 +1,274 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { io } from "socket.io-client";
-import API from "../api/api.js";
-import STOCKS from "../api/stockList.js";
 import StockChart from "../components/StockChart.jsx";
 import TradeForm from "../components/TradeForm.jsx";
+import API from "../api/api.js";
+import STOCKS from "../api/stockList.js";
 
-// --- Sub-components for better modularity ---
+// --- STYLES ---
+// Injecting CSS via a style tag to keep everything in one file.
+const DashboardStyles = () => (
+  <style>{`
+    :root {
+      --bg-color: #1a1a1e;
+      --panel-bg: #25252a;
+      --border-color: #3a3a40;
+      --text-primary: #f0f0f0;
+      --text-secondary: #a0a0a0;
+      --accent-color: #007bff;
+      --positive-color: #28a745;
+      --negative-color: #dc3545;
+      --warning-bg: #fff3cd;
+      --warning-border: #ffeeba;
+      --warning-text: #856404;
+      --info-bg: #e3f2fd;
+      --info-border: #90caf9;
+      --info-text: #0d47a1;
+    }
 
-// Modern searchable stock selector
-const StockSelector = ({ symbol, setSymbol, livePrices, filteredStocks }) => {
-  return (
-    <div className="relative w-full md:w-1/2">
-      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-        <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-          <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"></path>
-        </svg>
-      </div>
-      <input
-        type="text"
-        placeholder="Search and select a stock..."
-        value={symbol}
-        onChange={e => setSymbol(e.target.value)}
-        className="w-full pl-10 pr-4 py-2 text-sm text-gray-900 placeholder-gray-500 bg-gray-50 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-        list="stocks"
-      />
-      <datalist id="stocks">
+    .dashboard-container {
+      padding: 2rem;
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+    
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    
+    .dashboard-header h2 { margin: 0; }
+    
+    .dashboard-header .controls { display: flex; gap: 1rem; }
+    
+    .dashboard-header input, .dashboard-header select, .dashboard-header button {
+      background-color: var(--panel-bg);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: all 0.2s ease-in-out;
+    }
+    
+    .dashboard-header input:focus, .dashboard-header select:focus {
+      outline: none;
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 2px var(--accent-color);
+    }
+    
+    .dashboard-header button {
+      cursor: pointer;
+      background-color: var(--accent-color);
+      border-color: var(--accent-color);
+    }
+    
+    .dashboard-header button:hover { filter: brightness(1.2); }
+    
+    .info-cards-container { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+    
+    .info-card { padding: 1.5rem; border: 1px solid; border-radius: 8px; flex: 1; }
+    .info-card.warning { background-color: var(--warning-bg); border-color: var(--warning-border); color: var(--warning-text); }
+    .info-card.info { background-color: var(--info-bg); border-color: var(--info-border); color: var(--info-text); }
+    .info-card h3 { margin-top: 0; }
+    
+    .dashboard-main-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      grid-template-rows: auto auto;
+      grid-template-areas: "chart portfolio" "trade portfolio";
+      gap: 1.5rem;
+    }
+    
+    .panel { background-color: var(--panel-bg); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); }
+    
+    .chart-panel { grid-area: chart; }
+    .trade-panel { grid-area: trade; }
+    .portfolio-panel { grid-area: portfolio; }
+    
+    .portfolio-summary h3 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem; }
+    
+    .analytics { margin-bottom: 1.5rem; }
+    .analytics p { display: flex; justify-content: space-between; margin: 0.5rem 0; }
+    .analytics span { font-weight: bold; }
+    
+    .portfolio-summary table { width: 100%; border-collapse: collapse; }
+    .portfolio-summary th, .portfolio-summary td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--border-color); }
+    .portfolio-summary th { color: var(--text-secondary); }
+    
+    .positive { color: var(--positive-color); transition: color 0.3s; }
+    .negative { color: var(--negative-color); transition: color 0.3s; }
+    
+    .loader { display: flex; justify-content: center; align-items: center; height: 100%; font-size: 1.2rem; color: var(--text-secondary); }
+  `}</style>
+);
+
+// --- LOCAL PRESENTATIONAL COMPONENTS ---
+
+const DashboardHeader = ({
+  search, onSearchChange, symbol, onSymbolChange,
+  filteredStocks, livePrices, onRefresh
+}) => (
+  <header className="dashboard-header">
+    <h2>Market Dashboard</h2>
+    <div className="controls">
+      <input type="search" placeholder="Search stock..." value={search} onChange={e => onSearchChange(e.target.value)} />
+      <select value={symbol} onChange={e => onSymbolChange(e.target.value)}>
         {filteredStocks.map(s => (
           <option key={s.symbol} value={s.symbol}>
-            {s.name} - ${livePrices[s.symbol]?.toFixed(2) || "0.00"}
+            {s.name} ({s.symbol}) - ${livePrices[s.symbol]?.toFixed(2) || '...'}
           </option>
         ))}
-      </datalist>
+      </select>
+      <button onClick={onRefresh}>Refresh</button>
     </div>
-  );
-};
+  </header>
+);
 
-// Portfolio summary component
 const PortfolioSummary = ({ portfolio, livePrices }) => {
-  const analytics = (() => {
-    let invested = 0;
-    let current = 0;
-    portfolio.positions.forEach(p => {
-      invested += p.avgPrice * p.qty;
-      current += (livePrices[p.symbol] || p.avgPrice) * p.qty;
-    });
-    const totalCurrent = current + (portfolio.cash || 0);
-    const profitLoss = totalCurrent - (invested + (portfolio.cash || 0));
-    return { invested, current: totalCurrent, profitLoss };
-  })();
+  const analytics = useMemo(() => {
+    if (!portfolio?.positions) return { invested: 0, current: 0, profitLoss: 0 };
+    const invested = portfolio.positions.reduce((acc, p) => acc + p.avgPrice * p.qty, 0);
+    const currentValue = portfolio.positions.reduce((acc, p) => acc + (livePrices[p.symbol] || p.avgPrice) * p.qty, 0);
+    const totalCurrentValue = currentValue + portfolio.cash;
+    const totalInvestedValue = invested + portfolio.cash;
+    return {
+      invested,
+      current: totalCurrentValue,
+      profitLoss: totalCurrentValue - totalInvestedValue,
+    };
+  }, [portfolio, livePrices]);
+
+  if (!portfolio) return <p>No portfolio data available.</p>;
+  const profitLossClass = analytics.profitLoss >= 0 ? 'positive' : 'negative';
 
   return (
-    <div className="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700">
-      <h3 className="text-xl font-semibold mb-4 text-white">Portfolio Summary 📊</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="p-4 bg-gray-700 rounded-lg">
-          <p className="text-sm text-gray-400">Cash Balance</p>
-          <p className="text-lg font-bold text-white">${portfolio.cash.toFixed(2)}</p>
-        </div>
-        <div className="p-4 bg-gray-700 rounded-lg">
-          <p className="text-sm text-gray-400">Total Invested</p>
-          <p className="text-lg font-bold text-white">${analytics.invested.toFixed(2)}</p>
-        </div>
-        <div className="p-4 bg-gray-700 rounded-lg">
-          <p className="text-sm text-gray-400">Current Value</p>
-          <p className="text-lg font-bold text-white">${analytics.current.toFixed(2)}</p>
-        </div>
+    <div className="portfolio-summary">
+      <h3>Portfolio Summary</h3>
+      <div className="analytics">
+        <p>Cash: <span>${portfolio.cash?.toFixed(2)}</span></p>
+        <p>Total Value: <span>${analytics.current.toFixed(2)}</span></p>
+        <p>Profit / Loss: <span className={profitLossClass}>${analytics.profitLoss.toFixed(2)}</span></p>
       </div>
-      <div className={`p-4 rounded-lg text-center font-bold text-xl ${analytics.profitLoss >= 0 ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}>
-        Profit / Loss: ${analytics.profitLoss.toFixed(2)}
-      </div>
-
-      <div className="mt-6">
-        <h4 className="text-lg font-semibold text-white mb-3">Your Positions</h4>
-        <div className="grid grid-cols-1 gap-4">
+      <table>
+        <thead><tr><th>Symbol</th><th>Qty</th><th>Avg Price</th><th>Live Price</th></tr></thead>
+        <tbody>
           {portfolio.positions.map(p => (
-            <div key={p.symbol} className="bg-gray-700 p-4 rounded-lg flex justify-between items-center transition-transform hover:scale-105">
-              <div>
-                <p className="text-md font-semibold text-white">{p.symbol}</p>
-                <p className="text-sm text-gray-400">Qty: {p.qty}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-400">Live: <span className="text-white font-bold">${(livePrices[p.symbol] || p.avgPrice).toFixed(2)}</span></p>
-                <p className="text-sm text-gray-400">Avg Cost: <span className="text-white">${p.avgPrice.toFixed(2)}</span></p>
-              </div>
-            </div>
+            <tr key={p.symbol}>
+              <td>{p.symbol}</td><td>{p.qty}</td><td>${p.avgPrice.toFixed(2)}</td><td>${(livePrices[p.symbol] || p.avgPrice).toFixed(2)}</td>
+            </tr>
           ))}
-        </div>
-      </div>
+        </tbody>
+      </table>
     </div>
   );
 };
 
-// --- Main Dashboard Component ---
+const InfoCard = ({ children, type = 'info' }) => (
+  <div className={`info-card ${type}`}>{children}</div>
+);
+
+// --- MAIN DASHBOARD COMPONENT ---
 
 export default function Dashboard() {
-  const [symbol, setSymbol] = useState("AAPL");
+  // --- STATE AND LOGIC ---
+  const [symbol, setSymbol] = useState('AAPL');
+  const [search, setSearch] = useState('');
   const [portfolio, setPortfolio] = useState(null);
   const [socket, setSocket] = useState(null);
   const [livePrices, setLivePrices] = useState({});
-  const [search, setSearch] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Socket connection
   useEffect(() => {
     const newSocket = io(import.meta.env.VITE_SOCKET_URL);
     setSocket(newSocket);
     return () => newSocket.disconnect();
   }, []);
 
+  // Portfolio refresh logic
   const refreshPortfolio = useCallback(async () => {
+    if (!socket) return;
+    setIsLoading(true);
     try {
-      const { data } = await API.get("/portfolio");
+      const { data } = await API.get('/portfolio');
       setPortfolio(data);
-      if (socket && data.positions) {
-        data.positions.forEach(p => socket.emit("subscribe", p.symbol));
-      }
+      data.positions?.forEach(p => socket.emit('subscribe', p.symbol));
     } catch (err) {
-      console.error("Failed to load portfolio:", err);
+      console.error('Failed to load portfolio:', err);
+    } finally {
+      setIsLoading(false);
     }
   }, [socket]);
 
+  // Initial fetch
   useEffect(() => {
-    if (socket) refreshPortfolio();
-  }, [socket, refreshPortfolio]);
+    refreshPortfolio();
+  }, [refreshPortfolio]);
 
+  // Live price listener
   useEffect(() => {
     if (!socket) return;
     const handlePriceUpdate = ({ symbol, price }) => {
       setLivePrices(prev => ({ ...prev, [symbol]: price }));
     };
-    socket.on("priceUpdate", handlePriceUpdate);
-    return () => socket.off("priceUpdate", handlePriceUpdate);
+    socket.on('priceUpdate', handlePriceUpdate);
+    return () => socket.off('priceUpdate', handlePriceUpdate);
   }, [socket]);
+  
+  // Memoized derived state
+  const filteredStocks = useMemo(() =>
+    STOCKS.filter(
+      s =>
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.symbol.toLowerCase().includes(search.toLowerCase())
+    ), [search]);
 
-  const filteredStocks = STOCKS.filter(
-    s =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.symbol.toLowerCase().includes(search.toLowerCase())
-  );
-
+  // --- RENDER ---
   return (
-    <div className="min-h-screen bg-gray-900 text-white font-sans transition-colors duration-500">
-      <div className="absolute inset-0 z-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#333, #000)', backgroundSize: '100% 100%' }}></div>
-      <div className="relative z-10 container mx-auto p-4 md:p-8">
-        <header className="flex flex-col md:flex-row justify-between items-center mb-6">
-          <h1 className="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
-            Market Dashboard
-          </h1>
-          <div className="flex items-center space-x-4 mt-4 md:mt-0">
-            <StockSelector 
-              symbol={symbol} 
-              setSymbol={setSymbol} 
-              livePrices={livePrices} 
-              filteredStocks={filteredStocks} 
-            />
-            <button
-              onClick={refreshPortfolio}
-              className="py-2 px-4 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 transition-colors duration-300"
-            >
-              Refresh
-            </button>
+    <>
+      <DashboardStyles />
+      <div className="dashboard-container">
+        <DashboardHeader
+          search={search}
+          onSearchChange={setSearch}
+          symbol={symbol}
+          onSymbolChange={setSymbol}
+          filteredStocks={filteredStocks}
+          livePrices={livePrices}
+          onRefresh={refreshPortfolio}
+        />
+        <div className="info-cards-container">
+          <InfoCard type="warning">
+            ⚠️ Since the backend is on a free-tier host, it may sleep after 15 minutes of inactivity. The initial load could take up to a minute.
+          </InfoCard>
+          <InfoCard type="info">
+            <h3>Demo Credentials</h3>
+            <p><b>Username:</b> test@example.com</p>
+            <p><b>Password:</b> password123</p>
+          </InfoCard>
+        </div>
+        <div className="dashboard-main-grid">
+          <div className="panel chart-panel">
+            <StockChart symbol={symbol} />
           </div>
-        </header>
-
-        <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <section className="lg:col-span-2 space-y-6">
-            <div className="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700">
-              <h2 className="text-xl font-semibold mb-4 text-white">Stock Chart</h2>
-              <StockChart symbol={symbol} />
-            </div>
-
-            <div className="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700">
-              <h2 className="text-xl font-semibold mb-4 text-white">Place a Trade</h2>
-              <TradeForm onTrade={refreshPortfolio} />
-            </div>
-
-            {/* Backend sleep notice */}
-            <div className="bg-yellow-900 text-yellow-300 p-4 rounded-lg border border-yellow-700 flex items-center">
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path fillRule="evenodd" d="M8.257 3.51a1.5 1.5 0 012.486 0L15.343 8a1.5 1.5 0 01-.628 2.25l-2.91 1.774a1.5 1.5 0 00-.73 1.096l-.88 2.592a1.5 1.5 0 01-2.618 0l-.88-2.592a1.5 1.5 0 00-.73-1.096L5.285 10.25a1.5 1.5 0 01-.628-2.25L8.257 3.51z" clipRule="evenodd"></path>
-              </svg>
-              <span>The backend may be sleeping. Please wait up to a minute for the service to wake up.</span>
-            </div>
-
-            {/* Credentials card */}
-            <div className="bg-blue-900 text-blue-300 p-4 rounded-lg border border-blue-700">
-              <h3 className="text-lg font-semibold mb-1">Demo Login Credentials</h3>
-              <p><strong>Username:</strong> test@example.com</p>
-              <p><strong>Password:</strong> password123</p>
-            </div>
-          </section>
-
-          {portfolio && (
-            <aside>
+          <div className="panel trade-panel">
+            <TradeForm onTrade={refreshPortfolio} />
+          </div>
+          <div className="panel portfolio-panel">
+            {isLoading && !portfolio ? (
+              <div className="loader">Loading Portfolio...</div>
+            ) : (
               <PortfolioSummary portfolio={portfolio} livePrices={livePrices} />
-            </aside>
-          )}
-        </main>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
