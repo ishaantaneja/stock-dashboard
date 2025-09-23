@@ -26,11 +26,17 @@ const DashboardStyles = () => (
       --info-text: #0d47a1;
     }
 
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+    }
+
     .dashboard-container {
       padding: 2rem;
       background-color: var(--bg-color);
       color: var(--text-primary);
       min-height: 100vh;
+      box-sizing: border-box;
     }
     
     .dashboard-header {
@@ -44,7 +50,11 @@ const DashboardStyles = () => (
     
     .dashboard-header h2 { margin: 0; }
     
-    .dashboard-header .controls { display: flex; gap: 1rem; }
+    .dashboard-header .controls { 
+      display: flex; 
+      gap: 1rem; 
+      flex-wrap: wrap; 
+    }
     
     .dashboard-header input, .dashboard-header select, .dashboard-header button {
       background-color: var(--panel-bg);
@@ -70,9 +80,18 @@ const DashboardStyles = () => (
     
     .dashboard-header button:hover { filter: brightness(1.2); }
     
-    .info-cards-container { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+    .info-cards-container { 
+      display: flex; 
+      gap: 1.5rem; 
+      margin-bottom: 2rem; 
+    }
     
-    .info-card { padding: 1.5rem; border: 1px solid; border-radius: 8px; flex: 1; }
+    .info-card { 
+      padding: 1.5rem; 
+      border: 1px solid; 
+      border-radius: 8px; 
+      flex: 1; 
+    }
     .info-card.warning { background-color: var(--warning-bg); border-color: var(--warning-border); color: var(--warning-text); }
     .info-card.info { background-color: var(--info-bg); border-color: var(--info-border); color: var(--info-text); }
     .info-card h3 { margin-top: 0; }
@@ -105,6 +124,53 @@ const DashboardStyles = () => (
     .negative { color: var(--negative-color); transition: color 0.3s; }
     
     .loader { display: flex; justify-content: center; align-items: center; height: 100%; font-size: 1.2rem; color: var(--text-secondary); }
+    
+    /* --- Media Queries for Responsiveness --- */
+    @media (max-width: 1024px) {
+      .dashboard-main-grid {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "portfolio"
+          "chart"
+          "trade";
+      }
+      .info-cards-container {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .dashboard-container {
+        padding: 1rem;
+      }
+
+      .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .dashboard-header .controls {
+        width: 100%;
+        flex-direction: column;
+      }
+      
+      .dashboard-header input, .dashboard-header select, .dashboard-header button {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .dashboard-header button {
+        margin-top: 0.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .dashboard-container {
+        padding: 0.5rem;
+      }
+      .info-card {
+        padding: 1rem;
+      }
+    }
   `}</style>
 );
 
