@@ -72,7 +72,7 @@ export default function Dashboard() {
         return { invested, current: totalCurrent, profitLoss };
       })()
     : { invested: 0, current: 0, profitLoss: 0 };
-  
+
   const profitLossClass = analytics.profitLoss >= 0 ? "positive" : "negative";
 
   return (
@@ -94,6 +94,19 @@ export default function Dashboard() {
           </select>
           <button onClick={refreshPortfolio}>Refresh</button>
         </div>
+      </div>
+
+      {/* Backend sleep notice */}
+      <div className="notice-card" style={{ margin: "20px 0", padding: "10px", background: "#fff3cd", border: "1px solid #ffeeba", borderRadius: "8px" }}>
+        ⚠️ Since the backend is hosted on Render and goes to sleep after 15 minutes of inactivity, 
+        you may have to wait up to a minute for the service to wake up.
+      </div>
+
+      {/* Credentials card */}
+      <div className="credentials-card" style={{ margin: "20px 0", padding: "15px", background: "#e3f2fd", border: "1px solid #90caf9", borderRadius: "8px" }}>
+        <h3>Demo Login Credentials</h3>
+        <p><strong>Username:</strong> test@example.com</p>
+        <p><strong>Password:</strong> password123</p>
       </div>
 
       <div className="dashboard-main">
